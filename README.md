@@ -28,11 +28,11 @@ Each directory contains:
 
 ## Vulnerabilities Covered
 
-1. **Dangling Pointer** - [What happens to child accounts stored in a parent account when the parent no longer exists]
-2. **Forced Rebalancing** - [Rebalancing in any DeFi protocol should be handled by the protocol itself, not by the public]
-3. **Sealevel Attacks** - [Common Solana vulnerabilities that are still actively exploited]
-4. **Sneaky Oracle** - [Know and verify your oracle writer]
-5. **Timing** - [How comparison operators written late at night can result in very cold nights]
+1. **[Dangling Pointer](./dangling_pointer/README.md)** - Account references that point to closed accounts, allowing attackers to recreate malicious data at the same address
+2. **[Forced Rebalancing](./forced_rebalancing/README.md)** - Users manipulating stake distribution by selectively depositing evenly but withdrawing from specific validators
+3. **[Sealevel Attacks](./sealevel_attacks/README.md)** - Four common validation failures: unchecked sysvars, non-canonical PDAs, duplicate accounts, and type confusion
+4. **[Sneaky Oracle](./sneaky_oracle/README.md)** - Oracle price rollback attacks using non-canonical feeds and missing monotonicity checks
+5. **[Timing](./timing/README.md)** - Boundary overlap vulnerabilities allowing deposit and claim operations in the same slot
 
 ## Getting Started
 
@@ -59,3 +59,4 @@ cargo test -- --no-capture
 # Test a specific example
 cd dangling_pointer && cargo test -- --no-capture
 ```
+
