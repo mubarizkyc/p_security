@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "sealevel_attacks/insecure", "sealevel_attacks/secure", "forced_rebalancing/insecure", "forced_rebalancing/secure", "dangling_pointer/insecure", "dangling_pointer/secure", "sneaky_oracle/insecure", "sneaky_oracle/secure", "timing/insecure", "timing/secure",
+]
+#resolver = "2"
