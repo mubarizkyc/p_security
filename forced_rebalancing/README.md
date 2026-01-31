@@ -21,7 +21,7 @@ fn deposit_stake(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 }
 
 fn withdraw_stake(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    // ❌ User chooses WHICH validator to withdraw from
+    // WRONG: User chooses WHICH validator to withdraw from
     let validator_to_withdraw = &accounts[0];
     let stake = /* amount to withdraw */;
     

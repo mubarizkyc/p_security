@@ -12,7 +12,7 @@ fn close_parent(accounts: &[AccountInfo]) -> ProgramResult {
     let parent_account = &accounts[0];
     let user = &accounts[1];
 
-    // ❌ CRITICAL: No check for existing children!
+    //  CRITICAL: No check for existing children!
     // Parent can be closed even if children still reference it
     
     // Close parent and return lamports...
