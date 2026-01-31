@@ -109,5 +109,8 @@ cd insecure && cargo test
 cd secure && cargo test
 ```
 
+## References
+
 - [Advent of Bugs, Day 2: LaunchPool Timing Issue](https://x.com/accretion_xyz/status/1995916134550536514)
+
 
