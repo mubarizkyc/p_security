@@ -2,7 +2,7 @@
 
 ## Overview
 
-A forced rebalancing attack occurs when a staking protocol allows users to deposit stake evenly across validators but withdraw from specific validators. This creates an imbalance that can be exploited by malicious validators to increase their stake share and revenue.
+A forced rebalancing attack occurs in **pooled staking protocols** when users can deposit stake evenly across validators but withdraw from specific validators. This creates an imbalance that malicious validators exploit to increase their stake share and revenue.
 
 ## The Vulnerability
 
