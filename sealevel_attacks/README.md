@@ -4,13 +4,15 @@
 
 This example demonstrates four common Solana security vulnerabilities that frequently appear together in production code. Each represents a fundamental validation failure that can lead to critical exploits.
 
+**Why "Sealevel"?** These are implementation-layer vulnerabilities specific to Solana's parallel execution model (Sealevel), distinct from consensus or economic attacks.
+
 ## The Vulnerabilities
 
 ### 1. Unchecked Sysvar Account
 
 **Insecure:**
 ```rust
-// ❌ Blindly trusts first account is Rent sysvar
+//  Blindly trusts first account is Rent sysvar
 let rent_account = &accounts[0];
 ```
 
@@ -30,7 +32,7 @@ if accounts[0].key() != &pinocchio::sysvars::rent::RENT_ID {
 
 **Insecure:**
 ```rust
-// ❌ User-controlled bump allows multiple valid PDAs
+//  User-controlled bump allows multiple valid PDAs
 let bump = instruction_data[0];
 let pda = create_program_address(&[seed, &[bump]], &program_id)?;
 ```
@@ -74,7 +76,7 @@ if person.key() == employee.key() {
 
 **Insecure:**
 ```rust
-// ❌ No discriminator check - any account can pretend to be Person
+//  No discriminator check - any account can pretend to be Person
 let person: &mut Person = 
     unsafe { &mut *(account.data.as_mut_ptr() as *mut Person) };
 ```
