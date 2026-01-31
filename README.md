@@ -1,15 +1,12 @@
-# Solana Security Examples: Pinocchio Edition
+## Solana Security: Multiple Ways to Break (and Fix) Your Programs
+Real exploit patterns I've been digging into, ported to Pinocchio.
 
-A practical security reference for Solana developers, demonstrating sophisticated vulnerabilities and their fixes using the Pinocchio framework.
+## What's This?
 
-## Overview
-
-This repository provides **5 real-world security vulnerabilities** with side-by-side comparisons of insecure and secure implementations. Each example is built with Pinocchio and includes detailed explanations of what went wrong and how to fix it correctly.
-
-## Why This Matters
-
-Frameworks like Anchor and Pinocchio provide powerful control, but they don't automatically make your programs safe. Understanding **why** a pattern is dangerous and **how** to secure it is essential for building robust Solana applications.
-
+I took five real attack vectors that have burned Solana devs before and rebuilt them with Pinocchio. Each one has:
+- The broken version (so you can see exactly how it fails)
+- The patched version (showing the actual fix)
+- A breakdown of why it works and what the attacker was thinking
 ## Repository Structure
 
 Each vulnerability is contained in its own directory with both insecure and secure implementations:
@@ -59,4 +56,5 @@ cargo test -- --no-capture
 # Test a specific example
 cd dangling_pointer && cargo test -- --no-capture
 ```
+
 
