@@ -11,7 +11,7 @@ When protocols use timestamps to transition between states (deposit → claim), 
 pub fn deposit(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let now = Clock::get()?.unix_timestamp;
     
-    // ❌ Allows deposit AT end_time
+    //  Allows deposit at end_time
     if now <= pool.end_time {
         user.deposited += amount;
         pool.total_deposited += amount;
@@ -21,7 +21,7 @@ pub fn deposit(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 pub fn claim(accounts: &[AccountInfo]) -> ProgramResult {
     let now = Clock::get()?.unix_timestamp;
     
-    // ❌ Allows claim AT claim_time
+    //  Allows claim at claim_time
     if now >= pool.claim_time {
         let reward = user.deposited * 1_000 / pool.total_deposited;
         user.claimed = true;
@@ -41,9 +41,9 @@ At timestamp `t = 100`:
 
 **Flash Loan Attack:**
 ```
-1. Borrow 1,000,000 tokens (flash loan)
+1. Borrow 1,000,000 tokens 
 2. Deposit 1,000,000 at t=100
-3. Claim rewards immediately at t=100
+3. Claim rewards immediately at t=100(in smae tx)
 4. Withdraw deposit
 5. Repay flash loan
 6. Keep all rewards (only pay small fee)
@@ -56,7 +56,7 @@ At timestamp `t = 100`:
 pub fn deposit(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let now = Clock::get()?.unix_timestamp;
     
-    // ✅ STRICT boundary: start <= now < end
+    //  STRICT boundary: start <= now < end
     if now < pool.start_time || now >= pool.end_time {
         return Err(ProgramError::InvalidInstructionData);
     }
@@ -68,7 +68,7 @@ pub fn deposit(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 pub fn claim(accounts: &[AccountInfo]) -> ProgramResult {
     let now = Clock::get()?.unix_timestamp;
     
-    // ✅ STRICT boundary: claim ONLY after claim_time
+    //  STRICT boundary: claim ONLY after claim_time
     if now < pool.claim_time {
         return Err(ProgramError::InvalidInstructionData);
     }
@@ -109,6 +109,5 @@ cd insecure && cargo test
 cd secure && cargo test
 ```
 
-## References
-
 - [Advent of Bugs, Day 2: LaunchPool Timing Issue](https://x.com/accretion_xyz/status/1995916134550536514)
+
