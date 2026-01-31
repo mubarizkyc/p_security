@@ -7,8 +7,6 @@ I took five real attack vectors that have burned Solana devs before and rebuilt 
 - The broken version (so you can see exactly how it fails)
 - The patched version (showing the actual fix)
 - A breakdown of why it works and what the attacker was thinking
-## Why Pinocchio? 
-This template uses raw Pinocchio instead of Anchor to demonstrate that understanding zero-copy deserialization and raw account pointers is essential for auditing Solana. If you only know Anchor, you don't know what Anchor is hiding from you
 ## Repository Structure
 
 Each vulnerability is contained in its own directory with both insecure and secure implementations:
@@ -37,9 +35,8 @@ Each directory contains:
 
 ### Prerequisites
 
-- Rust 1.75+
+- Rust 1.93+
 - Solana CLI 3.1.3+
-- Pinocchio framework
 
 ### Building
 ```bash
@@ -56,8 +53,7 @@ cd dangling_pointer/insecure && cargo build-sbf
 cargo test -- --no-capture
 
 # Test a specific example
-cd dangling_pointer && cargo test -- --no-capture
+cd dangling_pointer/insecure && cargo test -- --no-capture
 ```
-
 
 
