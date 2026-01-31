@@ -251,10 +251,10 @@ mod tests {
 
         // In the insecure version, this might succeed or behave unexpectedly
         // because it's reading from attacker-controlled parent data
-        println!(
-            "Child closure result (interacting with malicious parent): {:?}",
-            result
-        );
+        //  println!(
+        //    "Child closure result (interacting with malicious parent): {:?}",
+        //  result
+        //);
 
         // The core vulnerability is demonstrated: child has a dangling pointer
         // that now references attacker-controlled state

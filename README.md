@@ -1,4 +1,4 @@
-## Solana Security: Multiple Ways to Break (and Fix) Your Programs
+## Multiple Ways to Break (and Fix) Your Solana Programs
 Real exploit patterns I've been digging into, ported to Pinocchio.
 
 ## What's This?
