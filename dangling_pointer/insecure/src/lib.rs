@@ -40,7 +40,7 @@ This code demonstrates a dangling pointer vulnerability:
 */
 
 #[repr(C)]
-struct ParentAccount {
+struct _ParentAccount {
     pub units: u64,
 }
 
@@ -127,7 +127,7 @@ mod tests {
 
         svm.airdrop(&user.pubkey(), 10_000_000_000).unwrap();
 
-        svm.add_program_from_file(crate::id(), "../../target/deploy/gc_insecure.so")
+        svm.add_program_from_file(crate::id(), "../../target/deploy/dp_insecure.so")
             .unwrap();
 
         // Create parent account with 5 units

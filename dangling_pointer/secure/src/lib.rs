@@ -137,7 +137,7 @@ mod tests {
         let child = Keypair::new();
 
         svm.airdrop(&user.pubkey(), 10_000_000_000).unwrap();
-        svm.add_program_from_file(crate::id(), "../../target/deploy/gc_secure.so")
+        svm.add_program_from_file(crate::id(), "../../target/deploy/dp_secure.so")
             .unwrap();
 
         // Parent has 1 child
@@ -198,7 +198,7 @@ mod tests {
         let child = Keypair::new();
 
         svm.airdrop(&user.pubkey(), 10_000_000_000).unwrap();
-        svm.add_program_from_file(crate::id(), "../../target/deploy/gc_secure.so")
+        svm.add_program_from_file(crate::id(), "../../target/deploy/dp_secure.so")
             .unwrap();
 
         // Parent starts with 1 child

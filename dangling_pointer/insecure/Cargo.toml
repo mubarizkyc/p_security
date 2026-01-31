@@ -1,5 +1,5 @@
 [package]
-name = "gc_insecure"
+name = "dp_insecure"
 version = "0.1.0"
 edition = "2024"
 
