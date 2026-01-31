@@ -249,7 +249,13 @@ mod tests {
         );
 
         assert!(svm.send_transaction(close_child).is_ok());
-
+        // verify parent state after child closure:
+        let parent_acc = svm.get_account(&parent.pubkey()).unwrap();
+        let parent_state = unsafe { &*(parent_acc.data.as_ptr() as *const ParentAccount) };
+        assert_eq!(
+            parent_state.child_count, 0,
+            "Child count should be 0 after closure"
+        );
         // Close parent
         let close_parent = Transaction::new_signed_with_payer(
             &[Instruction {
